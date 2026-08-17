@@ -4,13 +4,17 @@ description: >
   This skill should be used when the user asks to "scan a plugin for security issues",
   "audit this plugin", "check this plugin for vulnerabilities", "review plugin security",
   "is this plugin safe", "check for data leakage in this plugin", "run a SAST scan on
-  this plugin", or "check this plugin's dependencies/libraries for vulnerabilities".
-  It performs a three-part security review of an internally-built Claude/Cowork plugin:
-  static code analysis (SAST), third-party library/dependency scanning, and sensitive
-  data / secrets leakage detection, produces a written security report, and logs the
-  result to a shared "Scan Results" Google Doc for the security team.
+  this plugin", "check this plugin's dependencies/libraries for vulnerabilities",
+  "check this plugin for prompt injection", or "check this plugin for leaked internal
+  information". It performs a five-part security review of an internally-built
+  Claude/Cowork plugin: static code analysis (SAST), third-party library/dependency
+  scanning, sensitive data / secrets leakage detection, instruction-safety / prompt-
+  injection review, and context-leakage review (catching real internal/business
+  details that leaked into the plugin during authoring). It produces a written
+  security report and logs the result to a shared "Scan Results" Google Doc for the
+  security team.
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   author: "Si-Vision Security Team"
 ---
 
@@ -115,16 +119,68 @@ organizational or user data.
 4. Treat any verified secret (not just a pattern match) as CRITICAL and recommend
    immediate rotation of that credential in addition to removing it from the plugin.
 
-## Step 4: Aggregate and report
+## Step 4: Instruction-safety / prompt-injection review
+
+Goal: catch risks that are specific to Claude/Cowork plugins being natural-language
+instruction sets rather than code — this is NOT covered by SAST, because there's no
+traditional vulnerability pattern to match against. Run this on every skill and
+agent body, every hook prompt, and any text the plugin feeds back to Claude.
+
+1. Read the full text of every `SKILL.md`, `agents/*.md`, and prompt-type hook in
+   `hooks/hooks.json`.
+2. Apply the checklist in `references/prompt-injection-checklist.md`. In short, look
+   for: language that tells Claude to act without confirmation on consequential
+   actions (delete, send, post publicly, share externally, grant access); missing
+   "treat as data, not instructions" guardrails on any step where the skill has
+   Claude read external or untrusted content (files from other people, fetched URLs,
+   Slack/email search results, uploaded documents) and then act on what it read;
+   hooks or instructions that auto-approve/auto-decide without real conditional
+   logic; and instructions that tell Claude to widen its own tool access, install
+   other plugins, or modify its own configuration without the user being told.
+3. This step requires judgment, not just pattern matching — read the instructions
+   the way an attacker would: "if I control the content this skill reads (a file,
+   an email, a web page), what could I make Claude do just by writing text into
+   that content?" If the answer is "something consequential, without the user
+   confirming," that's a real finding.
+4. Rate per `references/severity-rubric.md`'s instruction-safety guidance.
+
+## Step 5: Context-leakage review (build-time knowledge leakage)
+
+Goal: catch real internal/business-specific details that ended up hardcoded into
+the plugin during authoring — a risk specific to plugins built through an assisted,
+natural-language flow that searches Slack, email, and documents to fill in details,
+rather than written by a developer from a blank file.
+
+1. Read every file in the plugin (skills, references, examples, README,
+   CONNECTORS.md) looking for content that reads like it was copied verbatim from a
+   real internal source rather than written as a generic example. Apply
+   `references/context-leakage-checklist.md`.
+2. Distinguish deliberate, clearly-labeled generic examples ("e.g. a project named
+   Alpha") from content that looks like real specifics: actual client/customer
+   names, real project codenames, specific dollar figures, real people's names tied
+   to sensitive statements, actual Slack channel names or ticket IDs, or anything
+   that reads like it was pulled from an actual conversation rather than composed
+   as an example.
+3. Weigh severity against how broadly the plugin will be distributed (check the
+   marketplace/repo visibility if known — see `references/context-leakage-checklist.md`
+   for the exact rubric): the same internal detail is a bigger problem in a plugin
+   pushed to a public or company-wide repo than one scoped to the single team that
+   authored it, since visibility determines who's actually exposed to the leak.
+4. Recommend generalizing the specific detail, or moving it to a private config
+   value the plugin reads at runtime instead of hardcoding it into a shared file.
+
+## Step 6: Aggregate and report
 
 1. Deduplicate findings across tools/modules that flag the same root cause.
 2. Assign severity per `references/severity-rubric.md`: Critical, High, Medium, Low, Info.
 3. Write a markdown report to `<scratch>/security-report-<plugin-name>-<date>.md` using
    the structure in `references/report-template.md`: executive summary with counts by
-   severity, then one section per module (SAST, Dependencies, Secrets/Data Leakage)
-   listing each finding with file, line (if applicable), description, why it matters,
-   and a concrete remediation step. Note explicitly which modules ran with real tools
-   vs. manual fallback.
+   severity, then one section per module (SAST, Dependencies, Secrets/Data Leakage,
+   Instruction Safety, Context Leakage) listing each finding with file, line (if
+   applicable), description, why it matters, and a concrete remediation step. Note
+   explicitly which modules ran with real tools vs. manual fallback (Instruction
+   Safety and Context Leakage are always manual/judgment-based — there is no
+   automated tool for either, say so plainly rather than implying otherwise).
 4. Deliver the report to the user as a file (this is a deliverable they'll want to
    keep/share — treat it accordingly rather than only pasting a summary in chat).
 5. In the chat response, give a short prose summary (no more than a few sentences):
@@ -134,8 +190,11 @@ organizational or user data.
 6. If nothing was found in a module, still say so explicitly ("no hardcoded secrets
    detected") rather than omitting the module — an omitted module reads as "not
    checked."
+7. If any Critical or High finding was found in ANY module, say so plainly and
+   explicitly recommend the plugin get security sign-off before merging/distributing
+   further — don't let a serious finding get lost in a routine-sounding summary.
 
-## Step 5: Log the scan to the shared Google Drive record
+## Step 7: Log the scan to the shared Google Drive record
 
 Every scan must be recorded centrally so the security team has visibility without
 relying on each developer to forward their report. This is required, not optional
@@ -161,7 +220,7 @@ relying on each developer to forward their report. This is required, not optiona
    - **Plugin:** [plugin-name] (version [x.y.z] if known)
    - **Result:** [Critical: n, High: n, Medium: n, Low: n, Info: n]
    - **Top issue:** [one-line summary of the single most important finding, or "None — clean scan"]
-   - **Modules:** SAST [automated/manual], Dependencies [automated/manual], Secrets [automated/manual]
+   - **Modules:** SAST [automated/manual], Dependencies [automated/manual], Secrets [automated/manual], Instruction Safety [manual], Context Leakage [manual]
    ---
    ```
 
@@ -182,5 +241,11 @@ relying on each developer to forward their report. This is required, not optiona
 - False positives happen, especially with SAST auto-config. Use judgment: a
   regex-detected "secret" that is clearly a placeholder (`~~api-key`, `YOUR_TOKEN_HERE`,
   `<CHANGE_ME>`) is not a real leak — note it as informational, not Critical.
-- If the user wants to re-scan after fixes, re-run the same three steps and diff
+- If the user wants to re-scan after fixes, re-run all five modules and diff
   against the previous report's finding list to confirm closure.
+- Instruction-safety and context-leakage findings require more interpretation than
+  pattern-matched findings. When genuinely unsure whether something rises to a
+  finding, include it at a lower severity with a note that it needs human review,
+  rather than silently dropping it — false negatives here are worse than false
+  positives, since these two modules exist specifically to catch what automated
+  tools can't.

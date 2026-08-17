@@ -1,6 +1,6 @@
 # Security Report Template
 
-Use this structure for the markdown report written in Step 4 of SKILL.md.
+Use this structure for the markdown report written in Step 6 of SKILL.md.
 Replace bracketed placeholders; omit a finding table row set entirely (not the
 section) if a module found nothing — instead write "No findings" under that module.
 
@@ -26,6 +26,8 @@ section) if a module found nothing — instead write "No findings" under that mo
 - SAST: [semgrep (automated) / manual checklist]
 - Dependency scan: [npm audit + pip-audit (automated) / manual checklist]
 - Secrets & data leakage: [gitleaks + manual checks (automated) / manual checklist only]
+- Instruction safety / prompt injection: manual review (always manual — no automated tool exists for this)
+- Context leakage: manual review (always manual — no automated tool exists for this)
 
 ## 1. Static Code Analysis (SAST)
 
@@ -54,6 +56,27 @@ section) if a module found nothing — instead write "No findings" under that mo
 - **Issue:** [description — do NOT paste the actual secret value into the report]
 - **Why it matters:** [impact]
 - **Remediation:** [rotate credential / remove and use ${VAR} / restrict scope]
+
+[repeat per finding, or "No findings."]
+
+## 4. Instruction Safety / Prompt Injection
+
+### [Severity] — [short title]
+- **File:** `path/to/skill-or-hook`
+- **Issue:** [description — what the instruction says and the risk it creates]
+- **Why it matters:** [the concrete way this could be triggered/misused]
+- **Remediation:** [add a "treat as data" guardrail / add a human confirmation step / narrow the delegation language]
+
+[repeat per finding, or "No findings."]
+
+## 5. Context Leakage (Build-Time Knowledge Leakage)
+
+### [Severity] — [short title]
+- **File:** `path/to/file`
+- **Issue:** [description of the internal detail found — describe it, don't quote sensitive specifics verbatim in the report]
+- **Distribution scope considered:** [private to team / company-wide / public repo]
+- **Why it matters:** [who is exposed to this and how]
+- **Remediation:** [generalize the example / move to runtime config / fix repo visibility]
 
 [repeat per finding, or "No findings."]
 

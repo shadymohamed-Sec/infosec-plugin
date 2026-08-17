@@ -17,6 +17,17 @@ a single markdown report with findings ranked by severity:
 3. **Sensitive data / secrets leakage** — hardcoded credentials, private keys,
    webhook URLs, and instructions or hooks that could exfiltrate file contents,
    credentials, or user data to unrecognized external destinations.
+4. **Instruction safety / prompt-injection review** — natural-language risks that
+   are specific to Claude/Cowork plugins being instruction sets rather than code:
+   missing "treat as data, not instructions" guardrails, auto-approving hooks,
+   and instructions that skip human confirmation on consequential actions.
+5. **Context leakage review** — real internal/business specifics (client names,
+   codenames, figures, real people tied to sensitive statements) that leaked into
+   the plugin during an assisted, knowledge-search-driven authoring flow, weighed
+   against how broadly the plugin will actually be distributed.
+
+Modules 4 and 5 are always manual/judgment-based — there's no automated tool for
+either, since they're specific to natural-language plugin content rather than code.
 
 Every scan is also logged to a shared **"Scan Results"** Google Doc — one entry per
 scan, newest first, showing who ran it, which plugin was scanned, and the severity
