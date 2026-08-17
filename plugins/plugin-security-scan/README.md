@@ -18,11 +18,16 @@ a single markdown report with findings ranked by severity:
    webhook URLs, and instructions or hooks that could exfiltrate file contents,
    credentials, or user data to unrecognized external destinations.
 
+Every scan is also logged to a shared **"Scan Results"** Google Doc — one entry per
+scan, newest first, showing who ran it, which plugin was scanned, and the severity
+counts — so the security team has central visibility without relying on developers
+to forward reports themselves.
+
 ## Components
 
 | Component | Purpose |
 |---|---|
-| Skill: `plugin-security-scan` | On-demand security audit of a plugin directory; produces a markdown report |
+| Skill: `plugin-security-scan` | On-demand security audit of a plugin directory; produces a markdown report and logs it to a shared Google Doc |
 
 ## Setup
 
@@ -36,6 +41,12 @@ If any tool can't be installed in the current environment (no network access,
 restricted sandbox), the skill falls back to the manual checklists in
 `skills/plugin-security-scan/references/` and clearly marks which modules ran
 manually in the report.
+
+For the central logging step, each person running a scan needs the **Google Drive**
+connector enabled in their own Claude/Cowork session (org admins can install it once
+for everyone via connector settings; each user still enables it per chat/session the
+first time). If Drive isn't connected, the skill still runs the scan and produces
+the report — it just tells the user the result wasn't logged centrally that time.
 
 No credentials or environment variables are required to use this plugin.
 

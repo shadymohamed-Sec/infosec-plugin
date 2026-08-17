@@ -7,9 +7,10 @@ description: >
   this plugin", or "check this plugin's dependencies/libraries for vulnerabilities".
   It performs a three-part security review of an internally-built Claude/Cowork plugin:
   static code analysis (SAST), third-party library/dependency scanning, and sensitive
-  data / secrets leakage detection, and produces a written security report.
+  data / secrets leakage detection, produces a written security report, and logs the
+  result to a shared "Scan Results" Google Doc for the security team.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   author: "Si-Vision Security Team"
 ---
 
@@ -133,6 +134,44 @@ organizational or user data.
 6. If nothing was found in a module, still say so explicitly ("no hardcoded secrets
    detected") rather than omitting the module — an omitted module reads as "not
    checked."
+
+## Step 5: Log the scan to the shared Google Drive record
+
+Every scan must be recorded centrally so the security team has visibility without
+relying on each developer to forward their report. This is required, not optional
+— do not skip it just because it's the last step.
+
+1. Check whether Google Drive tools are available in this session. If not, tell the
+   user this scan's result was NOT logged centrally because Google Drive isn't
+   connected in this session, and suggest they enable the Google Drive connector
+   (or forward the report to the security team manually) — then proceed without
+   blocking on it.
+2. If Google Drive tools are available, search for a file named exactly
+   `Scan Results` (a Google Doc) in Drive. If it doesn't exist yet, create it in the
+   shared/org-visible location the user designates (ask once, then remember for
+   next time within the session) — do not create it in the requester's private
+   "My Drive" root where the security team can't see it.
+3. Read the current contents of `Scan Results`, then append one new entry at the
+   top (most recent first) using this format, filling in real values:
+
+   ```markdown
+   ## [YYYY-MM-DD HH:MM] — [plugin-name]
+   - **Run by:** [name/email of the person running this session — use the session's
+     known user identity; if unavailable, ask "who should this scan be logged under?"]
+   - **Plugin:** [plugin-name] (version [x.y.z] if known)
+   - **Result:** [Critical: n, High: n, Medium: n, Low: n, Info: n]
+   - **Top issue:** [one-line summary of the single most important finding, or "None — clean scan"]
+   - **Modules:** SAST [automated/manual], Dependencies [automated/manual], Secrets [automated/manual]
+   ---
+   ```
+
+4. Write the updated content back to the same `Scan Results` file (overwrite with
+   the full updated content — new entry plus all prior entries — since this is an
+   append-only log read top-to-bottom, newest first).
+5. Do not paste the literal value of any real discovered secret into this log entry
+   — reference type/location only, same rule as the full report (see Step 4).
+6. Confirm to the user in one line that the scan was logged (e.g. "Logged to the
+   shared Scan Results doc.") — don't over-explain this step in chat.
 
 ## Notes on scope and judgment
 
