@@ -1,0 +1,18 @@
+{
+  "name": "si-vision-plugins",
+  "owner": {
+    "name": "Si-Vision",
+    "email": "security@si-vision.com"
+  },
+  "metadata": {
+    "description": "Si-Vision's internal plugin marketplace."
+  },
+  "plugins": [
+    {
+      "name": "plugin-security-scan",
+      "source": "./plugins/plugin-security-scan",
+      "description": "Scans internally-built Claude/Cowork plugins for security flaws: SAST, vulnerable/risky third-party libraries, and sensitive data or secrets leakage.",
+      "version": "0.1.0"
+    }
+  ]
+}

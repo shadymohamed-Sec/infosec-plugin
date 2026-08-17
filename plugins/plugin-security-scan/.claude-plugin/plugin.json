@@ -1,0 +1,9 @@
+{
+  "name": "plugin-security-scan",
+  "version": "0.1.0",
+  "description": "Scans internally-built Claude/Cowork plugins for security flaws: static code analysis (SAST), vulnerable/risky third-party libraries, and sensitive data or secrets leakage.",
+  "author": {
+    "name": "Si-Vision Security Team"
+  },
+  "keywords": ["security", "sast", "secrets-scanning", "dependency-scanning", "plugin-review", "appsec"]
+}
