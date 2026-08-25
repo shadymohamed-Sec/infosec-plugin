@@ -24,8 +24,8 @@ section) if a module found nothing — instead write "No findings" under that mo
 
 **Modules run:**
 - SAST: [semgrep (automated) / manual checklist]
-- Dependency scan: [npm audit + pip-audit (automated) / manual checklist]
-- Secrets & data leakage: [gitleaks + manual checks (automated) / manual checklist only]
+- Dependency scan: [npm audit + pip-audit + OSSF Scorecard (automated) / manual checklist]
+- Secrets & data leakage: [gitleaks + TruffleHog (automated, verified secrets) / manual checklist only]
 - Instruction safety / prompt injection: manual review (always manual — no automated tool exists for this)
 - Context leakage: manual review (always manual — no automated tool exists for this)
 

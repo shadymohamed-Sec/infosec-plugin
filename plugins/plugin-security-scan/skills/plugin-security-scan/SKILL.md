@@ -5,16 +5,20 @@ description: >
   "audit this plugin", "check this plugin for vulnerabilities", "review plugin security",
   "is this plugin safe", "check for data leakage in this plugin", "run a SAST scan on
   this plugin", "check this plugin's dependencies/libraries for vulnerabilities",
-  "check this plugin for prompt injection", or "check this plugin for leaked internal
-  information". It performs a five-part security review of an internally-built
-  Claude/Cowork plugin: static code analysis (SAST), third-party library/dependency
-  scanning, sensitive data / secrets leakage detection, instruction-safety / prompt-
-  injection review, and context-leakage review (catching real internal/business
-  details that leaked into the plugin during authoring). It produces a written
-  security report and logs the result to a shared "Scan Results" Google Doc for the
-  security team.
+  "check this plugin for prompt injection", "check this plugin for leaked internal
+  information", or "show scan trends/history". It performs a five-part security
+  review of an internally-built Claude/Cowork plugin: static code analysis (SAST,
+  via semgrep), third-party library/dependency scanning (via pip-audit/npm audit
+  plus OSSF Scorecard for upstream maintenance-hygiene risk), sensitive data /
+  secrets leakage detection (via gitleaks plus TruffleHog for verified-live-
+  credential detection), instruction-safety / prompt-injection review, and
+  context-leakage review (catching real internal/business details that leaked into
+  the plugin during authoring). It produces a written security report and logs the
+  result to a shared "Scan Results" Google Doc for the security team, which tracks
+  both a running history of every scan and an auto-updated trends summary across
+  all scans to date.
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
   author: "Si-Vision Security Team"
 ---
 
@@ -93,6 +97,15 @@ plugin pulls in (via `.mcp.json` stdio servers, `package.json`, `requirements.tx
    org recognizes.
 4. Record CVE IDs, severity, affected package + version, and fixed version (if any)
    for every finding.
+5. Run an OSSF Scorecard check on each direct dependency's upstream repository to
+   catch maintenance-hygiene risk before it becomes a CVE: `which scorecard ||`
+   install per `references/dependency-checklist.md`'s Scorecard section, then
+   `scorecard --repo=<dependency-repo-url> --format json`. Flag any dependency
+   scoring poorly on maintained-ness, code review practice, or branch protection —
+   these are leading indicators of exactly the kind of maintainer-account-compromise
+   risk that hit `deep-translator` (PYSEC-2022-252). If Scorecard can't be installed,
+   fall back to the manual signals in `references/dependency-checklist.md` (last
+   publish date, open issue count, archived/deprecated status).
 
 ## Step 3: Sensitive data / secrets leakage scan
 
@@ -103,8 +116,20 @@ organizational or user data.
    (e.g. via the project's package manager or a static binary); otherwise fall back to
    the regex checklist in `references/secrets-checklist.md`.
 2. If gitleaks is available: `gitleaks detect --source <plugin-dir> --no-git \
-   --report-format json --report-path <scratch>/gitleaks.json`.
-3. Regardless of tool availability, also manually grep for plugin-specific leakage
+   --report-format json --report-path <scratch>/gitleaks.json`. Also point it (or a
+   history-aware run) at the plugin's git history if it's in a repo, not just the
+   working tree — a secret removed in a later commit is still exposed in history.
+3. Prefer TruffleHog when available for anything gitleaks flags, because it goes a
+   step further than pattern matching: `which trufflehog || ` install per
+   `references/secrets-checklist.md`'s TruffleHog section, then
+   `trufflehog filesystem <plugin-dir> --json --only-verified` (or point it at the
+   git history the same way as gitleaks above). TruffleHog actively checks whether a
+   detected credential is live — e.g. it tries the AWS key against AWS, the Slack
+   token against Slack — before calling it verified. Treat a TruffleHog-verified
+   secret as definitively real (skip the placeholder-judgment step below entirely
+   for verified hits) and treat an unverified pattern match the same as a
+   gitleaks/manual hit — still worth reporting, just not automatically Critical.
+4. Regardless of tool availability, also manually grep for plugin-specific leakage
    patterns per `references/secrets-checklist.md`, including:
    - Hardcoded API keys, tokens, passwords, private keys, connection strings.
    - Skill/agent/hook instructions that tell Claude to send file contents, credentials,
@@ -116,7 +141,8 @@ organizational or user data.
    - Overly broad file access (skills reading arbitrary paths outside their working
      directory, e.g. `~/.ssh`, `~/.aws`, browser cookie stores) without a clear
      legitimate purpose tied to the skill's stated function.
-4. Treat any verified secret (not just a pattern match) as CRITICAL and recommend
+5. Treat any verified secret (a TruffleHog-verified hit, or a pattern match you've
+   confirmed by other means is real and not a placeholder) as CRITICAL and recommend
    immediate rotation of that credential in addition to removing it from the plugin.
 
 ## Step 4: Instruction-safety / prompt-injection review
@@ -194,11 +220,14 @@ rather than written by a developer from a blank file.
    explicitly recommend the plugin get security sign-off before merging/distributing
    further — don't let a serious finding get lost in a routine-sounding summary.
 
-## Step 7: Log the scan to the shared Google Drive record
+## Step 7: Log the scan to the shared Google Drive record, and keep it a history, not just a log
 
 Every scan must be recorded centrally so the security team has visibility without
 relying on each developer to forward their report. This is required, not optional
-— do not skip it just because it's the last step.
+— do not skip it just because it's the last step. The `Scan Results` doc has two
+parts: a **Trends Summary** at the top (recomputed every time, not appended to) and
+the **chronological entry log** below it (append-only, newest first). Both must be
+kept current on every run — the doc is a history, not just a running log.
 
 1. Check whether Google Drive tools are available in this session. If not, tell the
    user this scan's result was NOT logged centrally because Google Drive isn't
@@ -209,9 +238,17 @@ relying on each developer to forward their report. This is required, not optiona
    `Scan Results` (a Google Doc) in Drive. If it doesn't exist yet, create it in the
    shared/org-visible location the user designates (ask once, then remember for
    next time within the session) — do not create it in the requester's private
-   "My Drive" root where the security team can't see it.
-3. Read the current contents of `Scan Results`, then append one new entry at the
-   top (most recent first) using this format, filling in real values:
+   "My Drive" root where the security team can't see it. A new doc starts with an
+   empty Trends Summary and no entries.
+3. Read the current contents of `Scan Results` in full — you need every prior entry
+   to recompute the Trends Summary, not just to append below it.
+4. Note: this connector has no in-place "edit this doc's content" call, only
+   create/trash. To update the doc, trash the existing file by its ID and create a
+   new Google Doc with the same title in the same folder containing the full
+   rebuilt content (Trends Summary + all entries, old and new). Do this in one
+   trash-then-create pair per scan, not multiple partial writes.
+5. Append one new entry at the bottom of the entry log's ordering position (top of
+   the list, since it's newest-first) using this format, filling in real values:
 
    ```markdown
    ## [YYYY-MM-DD HH:MM] — [plugin-name]
@@ -224,13 +261,35 @@ relying on each developer to forward their report. This is required, not optiona
    ---
    ```
 
-4. Write the updated content back to the same `Scan Results` file (overwrite with
-   the full updated content — new entry plus all prior entries — since this is an
-   append-only log read top-to-bottom, newest first).
-5. Do not paste the literal value of any real discovered secret into this log entry
-   — reference type/location only, same rule as the full report (see Step 4).
-6. Confirm to the user in one line that the scan was logged (e.g. "Logged to the
-   shared Scan Results doc.") — don't over-explain this step in chat.
+6. Recompute the Trends Summary from ALL entries (including the new one) and place
+   it at the very top of the doc, above "Entries below this line." Use this
+   structure:
+
+   ```markdown
+   ## Trends Summary (auto-updated on every scan)
+   - **Total scans logged:** [n]
+   - **Cumulative findings:** Critical: [n], High: [n], Medium: [n], Low: [n], Info: [n]
+   - **Most common finding categories:** [top 3-5 recurring issue types across all
+     entries, by how often each type of finding shows up — e.g. "hardcoded secrets
+     (4 scans), missing webhook auth (3 scans), unpinned dependencies (3 scans)"]
+   - **Plugins with open Critical/High findings:** [list plugin names from the most
+     recent scan of each, if that scan had Critical/High findings — this is a
+     to-do list for the security team, not just a statistic]
+   - **Last updated:** [YYYY-MM-DD HH:MM] via scan of [plugin-name]
+   ```
+
+   Deriving "most common finding categories" requires reading back through prior
+   entries' "Top issue" lines and your own judgment about recurring themes — there's
+   no structured field to aggregate mechanically, so use reasonable groupings (e.g.
+   "no webhook authentication" and "unauthenticated endpoint" count as the same
+   category) rather than being overly literal about exact wording matches.
+7. Do not paste the literal value of any real discovered secret into either the log
+   entry or the Trends Summary — reference type/location only, same rule as the
+   full report (see Step 6).
+8. Confirm to the user in one line that the scan was logged (e.g. "Logged to the
+   shared Scan Results doc — now N scans on record."). Don't over-explain this step
+   in chat, and don't paste the Trends Summary into the chat response either — it
+   lives in the doc for whoever wants to check it.
 
 ## Notes on scope and judgment
 

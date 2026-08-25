@@ -1,7 +1,7 @@
 {
   "name": "plugin-security-scan",
-  "version": "0.3.0",
-  "description": "Scans internally-built Claude/Cowork plugins for security flaws: static code analysis (SAST), vulnerable/risky third-party libraries, sensitive data or secrets leakage, prompt-injection/instruction-safety risks, and build-time context leakage. Logs every scan to a shared Google Drive record.",
+  "version": "0.4.0",
+  "description": "Scans internally-built Claude/Cowork plugins for security flaws: static code analysis (SAST), vulnerable/risky third-party libraries (with OSSF Scorecard maintenance-hygiene checks), sensitive data or secrets leakage (with TruffleHog verified-credential detection), prompt-injection/instruction-safety risks, and build-time context leakage. Logs every scan to a shared Google Drive record that tracks history and trends.",
   "author": {
     "name": "Si-Vision Security Team"
   },

@@ -1,4 +1,25 @@
-# Manual Secrets & Data Leakage Checklist (fallback / supplement to gitleaks)
+# Manual Secrets & Data Leakage Checklist (fallback / supplement to gitleaks and TruffleHog)
+
+## TruffleHog (preferred tool for verification)
+
+Install: `pip install trufflehog3 --break-system-packages` or the standalone binary
+from the TruffleHog releases page (check current install instructions — the
+project has shipped both a Python and a Go rewrite over time, so verify which one
+`trufflehog` resolves to in the environment). Run against the plugin directory and,
+separately, against git history if the plugin lives in a repo:
+
+```
+trufflehog filesystem <plugin-dir> --json --only-verified
+trufflehog git file://<repo-path> --json --only-verified
+```
+
+What makes this worth running ahead of/alongside gitleaks: TruffleHog doesn't stop
+at "this looks like an AWS key" — for many credential types it actively tests the
+credential against the real service (does this key actually authenticate) before
+marking it verified. A verified hit is definitive: treat it as Critical immediately,
+no placeholder-judgment step needed, since it's been confirmed live. An unverified
+pattern match (`--only-verified` omitted, or a credential type TruffleHog can't
+verify) still needs the same judgment calls as a gitleaks hit below.
 
 Grep every text file in the plugin (`.md`, `.json`, `.js`, `.ts`, `.py`, `.sh`,
 `.yml`, `.yaml`) for the patterns below. Treat matches inside `references/examples/`

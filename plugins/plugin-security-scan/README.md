@@ -29,10 +29,19 @@ a single markdown report with findings ranked by severity:
 Modules 4 and 5 are always manual/judgment-based — there's no automated tool for
 either, since they're specific to natural-language plugin content rather than code.
 
-Every scan is also logged to a shared **"Scan Results"** Google Doc — one entry per
-scan, newest first, showing who ran it, which plugin was scanned, and the severity
-counts — so the security team has central visibility without relying on developers
-to forward reports themselves.
+Module 2 also runs **OSSF Scorecard** against each dependency's upstream repo to
+catch maintenance-hygiene risk (missing branch protection, no security policy,
+inactive maintenance) before it turns into a CVE. Module 3 also runs **TruffleHog**
+alongside gitleaks — TruffleHog actively verifies whether a detected credential is
+actually live before flagging it, cutting down on "might be a secret" noise.
+
+Every scan is also logged to a shared **"Scan Results"** Google Doc, which is kept
+as a history, not just a log: an auto-updated **Trends Summary** at the top
+(cumulative finding counts, most common recurring issue types, which plugins still
+have open Critical/High findings) plus the full chronological entry list below it —
+so the security team can see both "what happened in this one scan" and "what's the
+pattern across all scans to date" without relying on developers to forward reports
+themselves.
 
 ## Components
 

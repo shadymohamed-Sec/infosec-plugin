@@ -1,4 +1,27 @@
-# Manual Dependency / Library Review Checklist (fallback when npm audit / pip-audit are unavailable)
+# Manual Dependency / Library Review Checklist (fallback when npm audit / pip-audit / Scorecard are unavailable)
+
+## OSSF Scorecard (upstream maintenance-hygiene signal)
+
+Install: `go install github.com/ossf/scorecard/v4@latest` (requires Go) or use the
+prebuilt Docker image (`docker run gcr.io/openssf/scorecard ...`) if Go isn't
+available — check current install docs, the project ships both. Run against each
+direct dependency's source repository:
+
+```
+scorecard --repo=github.com/<org>/<project> --format json
+```
+
+This checks things a CVE database can't tell you in advance: does the project have
+branch protection, are CI dependencies pinned, is there a security policy, does the
+project show signs of active maintenance, does it have a history of responding to
+vulnerability reports. A low score doesn't mean the package is currently
+compromised — it means the conditions that let a repo get compromised (like a
+maintainer account takeover leading to a malicious release) are more present than
+they should be. Treat a notably low score (check the project's documented scoring
+bands, since these are periodically revised) as a Medium finding on its own, and as
+a reason to weight any other finding about that dependency more heavily.
+
+If Scorecard can't be installed, fall back to the manual signals below.
 
 ## For each declared dependency (package.json, requirements.txt, pyproject.toml, Pipfile)
 
